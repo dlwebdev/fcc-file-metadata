@@ -1,0 +1,132 @@
+// Data to use:
+// https://raw.githubusercontent.com/FreeCodeCamp/ProjectReferenceData/master/GDP-data.json
+
+// 1. I can see US Gross Domestic Product by quarter, over time.
+// 2. I can mouse over a bar and see a tooltip with the GDP amount and exact year and month that bar represents.
+
+const gdpDataPath = "https://raw.githubusercontent.com/FreeCodeCamp/ProjectReferenceData/master/GDP-data.json",
+      margin = 100,
+      containerWidth = 1170,
+      h = 500, 
+      color = d3.scale.category20c(),
+      formatCurrency = d3.format("$,.0f");
+
+let results,
+  data = [],
+  chart,
+  bars,
+  x, y,
+  xAxis, yAxis;
+
+d3.json(gdpDataPath, function(error, json) {
+  const chartData = json.data;
+
+  results = d3.map(chartData);
+  results.forEach(function(key, val) {
+    let result = {};
+    result.dateOfGdp = new Date(val[0]);
+    result.gdp = parseInt(val[1]);
+    data.push(result);
+  });
+
+  // To get the width of each bar we need to divide the total width of graph by the 
+  //   number of data points in our json
+  const barWidth = containerWidth / data.length;
+
+  const infoPanel = d3.select(".container").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+
+  chart = d3.select('#dataChart').append('svg')
+    .attr('class', 'chart')
+    .attr('width', containerWidth)
+    .attr('height', h)
+    .append('g');
+
+  d3.select('svg g')
+    .attr('transform', 'translate(10, 10)');
+
+  x = d3.time.scale()
+    .domain([data[0].dateOfGdp, d3.time.year.offset(data[data.length - 1].dateOfGdp, 1)])
+    .range([0, barWidth * data.length])
+
+  y = d3.scale.linear()
+    .domain([0, d3.max(data, function(d) {
+      return d.gdp;
+    })])
+    .rangeRound([0, h - margin]);
+
+  // Bars
+  bars = chart.append('g')
+    .attr('class', 'bars');
+
+  bars.selectAll('rect')
+    .data(data)
+    .enter()
+    .append('rect')
+    .attr('x', function(d, i) {
+      return x(d.dateOfGdp) - .5;
+    })
+    .attr('y', function(d) {
+      return (h - margin) - y(d.gdp) + .5
+    })
+    .attr('width', barWidth)
+    .attr('height', function(d) {
+      return y(d.gdp)
+    })
+
+  .on("mouseover", function(d) {
+      var rect = d3.select(this);
+      rect.attr("class", "mouseover");
+      var hoveredDateTime = new Date(d.dateOfGdp);
+      var year = hoveredDateTime.getFullYear();
+      var month = hoveredDateTime.getMonth();
+
+      var hoveredGdp = d.gdp;
+      infoPanel.transition()
+        .duration(200)
+        .style("opacity", 0.9);
+      infoPanel.html("<span class='hoveredGdp'>" + formatCurrency(hoveredGdp) + " Billion </span><br><span class='hoveredYear'>" + month + '/' + year + "</span>")
+        .style("left", (d3.event.pageX + 5) + "px")
+        .style("top", (d3.event.pageY - 50) + "px");
+    })
+    .on("mouseout", function() {
+      var rect = d3.select(this);
+      rect.attr("class", "mouseoff");
+      infoPanel.transition()
+        .duration(500)
+        .style("opacity", 0);
+    })
+    .append('g');
+
+  // Axis
+  xAxis = d3.svg.axis()
+    .scale(x)
+    .ticks(20)
+    .tickSize(6, 3, 1);
+
+  yAxis = d3.svg.axis()
+    .scale(d3.scale.linear().domain([0, d3.max(data, function(d) {
+      return d.gdp;
+    })]).rangeRound([h - margin, 0]))
+    .tickSize(6, 3, 1)
+    .orient('right');
+
+  chart.append('g')
+    .attr('class', 'x axis')
+    .attr('transform', 'translate(0, ' + (h - margin) + ')')
+    .call(xAxis);
+
+  chart.append('g')
+    .attr('class', 'y axis')
+    .attr('transform', 'translate(0)')
+    .call(yAxis);
+
+  chart.append('g')
+    .append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("y", 80)
+    .attr("x", -140)
+    .style("text-anchor", "end")
+    .text("US GDP");
+});
